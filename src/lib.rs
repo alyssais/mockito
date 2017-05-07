@@ -172,6 +172,7 @@
 //!
 
 extern crate hyper;
+extern crate curl;
 #[macro_use] extern crate serde_derive;
 extern crate serde_json;
 extern crate rand;
@@ -183,9 +184,9 @@ use std::fs::File;
 use std::io::Read;
 use std::cmp::PartialEq;
 use std::convert::{From, Into};
-use hyper::client::Client;
 use hyper::server::Request;
-use hyper::header::{Headers, ContentType, Connection};
+use curl::easy::Easy;
+use curl::easy::List as HeaderList;
 use rand::{thread_rng, Rng};
 
 ///
@@ -224,10 +225,10 @@ pub fn mock(method: &str, path: &str) -> Mock {
 pub fn reset() {
     server::try_start();
 
-    Client::new()
-        .delete(&[SERVER_URL, "/mocks"].join(""))
-        .send()
-        .unwrap();
+    let mut request = Easy::new();
+    request.url(&[SERVER_URL, "/mocks"].join("")).unwrap();
+    request.custom_request("DELETE").unwrap();
+    request.perform().unwrap();
 }
 
 #[allow(missing_docs)]
@@ -412,13 +413,11 @@ impl Mock {
 
         let body = serde_json::to_string(&self).unwrap();
 
-        Client::new()
-            .post(&[SERVER_URL, "/mocks"].join(""))
-            .header(ContentType::json())
-            .header(Connection::close())
-            .body(&body)
-            .send()
-            .unwrap();
+        let mut request = Easy::new();
+        request.url(&[SERVER_URL, "/mocks"].join("")).unwrap();
+        request.post(true).unwrap();
+        request.post_fields_copy(body.as_bytes()).unwrap();
+        request.perform().unwrap();
 
         self
     }
@@ -468,15 +467,16 @@ impl Mock {
     pub fn remove(&self) {
         server::try_start();
 
-        let mut headers = Headers::new();
-        headers.set_raw("x-mock-id", vec!(self.id.as_bytes().to_vec()));
 
-        Client::new()
-            .delete(&[SERVER_URL, "/mocks"].join(""))
-            .headers(headers)
-            .header(Connection::close())
-            .send()
-            .unwrap();
+        let mut request = Easy::new();
+        request.url(&[SERVER_URL, "/mocks"].join("")).unwrap();
+        request.custom_request("DELETE").unwrap();
+
+        let mut headers = HeaderList::new();
+        headers.append(&["x-mock-id", &self.id].join(":")).unwrap();
+        request.http_headers(headers).unwrap();
+
+        request.perform().unwrap();
     }
 
     #[allow(missing_docs)]

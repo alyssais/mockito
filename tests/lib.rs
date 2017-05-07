@@ -291,6 +291,20 @@ fn test_mock_remove_clears_the_mock() {
 }
 
 #[test]
+fn test_mock_remove_doesnt_clear_other_mocks() {
+    reset();
+
+    mock("POST", "/").create();
+
+    let mut mock = mock("GET", "/");
+    mock.create();
+    mock.remove();
+
+    let (reset_status_line, _, _) = request("POST /", "");
+    assert_eq!("HTTP/1.1 200 <unknown status code>\r\n", reset_status_line);
+}
+
+#[test]
 fn test_mock_create_for_is_only_available_during_the_closure_lifetime() {
     reset();
 
