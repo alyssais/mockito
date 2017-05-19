@@ -173,18 +173,21 @@
 
 extern crate hyper;
 extern crate curl;
+extern crate http_muncher;
 #[macro_use] extern crate serde_derive;
 extern crate serde_json;
 extern crate rand;
 
 mod server;
+mod request;
+type Request = request::Request;
 
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::cmp::PartialEq;
 use std::convert::{From, Into};
-use hyper::server::Request;
+use hyper::server::Request as HyperRequest;
 use curl::easy::Easy;
 use curl::easy::List as HeaderList;
 use rand::{thread_rng, Rng};
@@ -480,21 +483,21 @@ impl Mock {
     }
 
     #[allow(missing_docs)]
-    pub fn matches(&self, request: &Request) -> bool {
+    pub fn matches(&self, request: &HyperRequest) -> bool {
         self.method_matches(request)
             && self.path_matches(request)
             && self.headers_match(request)
     }
 
-    fn method_matches(&self, request: &Request) -> bool {
+    fn method_matches(&self, request: &HyperRequest) -> bool {
         self.method == request.method.to_string().to_uppercase()
     }
 
-    fn path_matches(&self, request: &Request) -> bool {
+    fn path_matches(&self, request: &HyperRequest) -> bool {
         self.path == request.uri.to_string()
     }
 
-    fn headers_match(&self, request: &Request) -> bool {
+    fn headers_match(&self, request: &HyperRequest) -> bool {
         for (field, value) in self.headers.iter() {
             match request.headers.get_raw(&field) {
                 Some(request_header_value) => {
